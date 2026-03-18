@@ -4,7 +4,9 @@
 
 A complete federated search solution for multiple Pantheon Drupal 11 sites has been implemented. The system allows a central hub site (your-site-name) to index and search content from multiple remote Drupal sites.
 
-## What Was Implemented
+Note, this requires a paid site plan at this time due to sandbox interstitial
+
+## Implementation
 
 ### 1. Hub Infrastructure (your-site-name)
 
