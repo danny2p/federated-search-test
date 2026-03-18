@@ -1,0 +1,86 @@
+.federated-search-form {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.federated-search-form input[type="search"] {
+  width: 100%;
+  max-width: 600px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.federated-search-form select {
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  margin-right: 1rem;
+}
+
+.federated-search-form button {
+  padding: 0.5rem 1.5rem;
+  background: #0073aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.federated-search-form button:hover {
+  background: #005a87;
+}
+
+.federated-search-results {
+  list-style: none;
+  padding: 0;
+}
+
+.search-result {
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.search-result h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.search-result h3 a {
+  color: #0073aa;
+  text-decoration: none;
+}
+
+.search-result h3 a:hover {
+  text-decoration: underline;
+}
+
+.search-snippet {
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.search-meta {
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.pager {
+  margin-top: 2rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.pager a {
+  padding: 0.5rem 1rem;
+  margin: 0 0.5rem;
+  background: #0073aa;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.pager a:hover {
+  background: #005a87;
+}

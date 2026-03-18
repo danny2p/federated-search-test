@@ -1,0 +1,6 @@
+services:
+  federated_search_client.commands:
+    class: Drupal\federated_search_client\Commands\FederatedSearchCommands
+    arguments: ['@federated_search_client.exporter']
+    tags:
+      - { name: drush.command }

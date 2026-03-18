@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * @file
+ * Federated Search Client module.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * Implements hook_cron().
+ */
+function federated_search_client_cron() {
+  $config = \Drupal::config('federated_search_client.settings');
+
+  // Check if sync is enabled
+  if (!$config->get('enabled')) {
+    return;
+  }
+
+  // Check if it's time to sync based on interval
+  $last_sync = \Drupal::state()->get('federated_search_client.last_sync', 0);
+  $interval = $config->get('sync_interval') ?: 3600; // Default 1 hour
+
+  if ((time() - $last_sync) < $interval) {
+    return;
+  }
+
+  // Run the sync
+  try {
+    $exporter = \Drupal::service('federated_search_client.exporter');
+    $result = $exporter->exportBatch();
+
+    \Drupal::logger('federated_search_client')->info('Synced @count items to federated search hub', [
+      '@count' => $result['exported'] ?? 0,
+    ]);
+
+    // Update last sync time
+    \Drupal::state()->set('federated_search_client.last_sync', time());
+
+  }
+  catch (\Exception $e) {
+    \Drupal::logger('federated_search_client')->error('Failed to sync to federated search hub: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the system settings form.
+ */
+function federated_search_client_form_system_site_information_settings_alter(&$form, FormStateInterface $form_state) {
+  // Add federated search configuration to site settings if needed
+}

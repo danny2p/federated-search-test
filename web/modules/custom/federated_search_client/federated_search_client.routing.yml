@@ -1,0 +1,7 @@
+federated_search_client.settings:
+  path: '/admin/config/search/federated-search-client'
+  defaults:
+    _form: '\Drupal\federated_search_client\Form\SettingsForm'
+    _title: 'Federated Search Client Settings'
+  requirements:
+    _permission: 'administer site configuration'

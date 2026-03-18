@@ -1,0 +1,32 @@
+# Default configuration for Federated Search Client
+
+# Enable automatic synchronization via cron
+enabled: false
+
+# Hub URL - The base URL of your federated search hub site
+# Example: https://danny-drupal-cms.pantheonsite.io
+hub_url: ''
+
+# Site ID - Unique identifier for this site in the federated index
+# Use lowercase letters, numbers, hyphens only
+# Examples: 'marketing', 'blog', 'docs', 'site-a'
+site_id: ''
+
+# Site URL - This site's base URL (auto-detected if empty)
+site_url: ''
+
+# Content types to index (empty = all published content)
+# Example: ['article', 'page', 'blog_post']
+content_types: []
+
+# Custom fields to include in the index
+# Add field machine names to include additional fields beyond title/body
+# Example: ['field_subtitle', 'field_featured']
+custom_fields: []
+
+# Batch size - Number of items to sync per cron run
+batch_size: 50
+
+# Sync interval - Seconds between sync operations (default: 3600 = 1 hour)
+# Examples: 900 = 15 min, 1800 = 30 min, 3600 = 1 hour, 86400 = 1 day
+sync_interval: 3600

@@ -1,0 +1,150 @@
+<?php
+
+/**
+ * @file
+ * Contains federated_search_hub.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function federated_search_hub_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.federated_search_hub':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Provides federated search capabilities across multiple Drupal sites.') . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function federated_search_hub_views_data_alter(array &$data) {
+  // Add custom field handler for site_id to display labels.
+  if (isset($data['search_api_index_federated_content']['site_id'])) {
+    $data['search_api_index_federated_content']['site_id']['field']['id'] = 'federated_site_label';
+    $data['search_api_index_federated_content']['site_id']['filter']['id'] = 'federated_site_filter';
+  }
+}
+
+/**
+ * Implements hook_search_api_solr_query_alter().
+ */
+function federated_search_hub_search_api_solr_query_alter(\Solarium\Core\Query\QueryInterface $solarium_query, \Drupal\search_api\Query\QueryInterface $query) {
+  // Only alter queries on the federated_content index.
+  if ($query->getIndex()->id() !== 'federated_content') {
+    return;
+  }
+
+  // Add a filter query to only return federated documents.
+  $solarium_query->createFilterQuery('federated_only')
+    ->setQuery('id:federated\:*');
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function federated_search_hub_node_insert(\Drupal\node\NodeInterface $node) {
+  if ($node->isPublished()) {
+    federated_search_hub_index_node($node);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function federated_search_hub_node_update(\Drupal\node\NodeInterface $node) {
+  if ($node->isPublished()) {
+    federated_search_hub_index_node($node);
+  }
+  else {
+    // If unpublished, remove from index
+    federated_search_hub_delete_node($node);
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function federated_search_hub_node_delete(\Drupal\node\NodeInterface $node) {
+  federated_search_hub_delete_node($node);
+}
+
+/**
+ * Index a node into federated search.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The node to index.
+ */
+function federated_search_hub_index_node(\Drupal\node\NodeInterface $node) {
+  $indexer = \Drupal::service('federated_search_hub.indexer');
+  $config = \Drupal::config('federated_search_hub.settings');
+
+  $site_id = $config->get('hub_site_id') ?: 'danny-drupal-cms';
+  $site_url = \Drupal::request()->getSchemeAndHttpHost();
+
+  $item = [
+    'id' => $node->id(),
+    'entity_type' => 'node',
+    'bundle' => $node->bundle(),
+    'title' => $node->getTitle(),
+    'language' => $node->language()->getId(),
+    'created' => $node->getCreatedTime(),
+    'changed' => $node->getChangedTime(),
+    'url' => $node->toUrl('canonical', ['absolute' => TRUE])->toString(),
+  ];
+
+  if ($node->getOwner()) {
+    $item['author'] = $node->getOwner()->getDisplayName();
+  }
+
+  // Check for field_content first (new standard), then body (legacy)
+  if ($node->hasField('field_content') && !$node->get('field_content')->isEmpty()) {
+    $content = $node->get('field_content')->first();
+    $item['body'] = strip_tags($content->value);
+  }
+  elseif ($node->hasField('body') && !$node->get('body')->isEmpty()) {
+    $body = $node->get('body')->first();
+    $item['body'] = strip_tags($body->value);
+
+    if (!empty($body->summary)) {
+      $item['summary'] = strip_tags($body->summary);
+    }
+  }
+
+  $indexer->indexBatch([
+    'site_id' => $site_id,
+    'site_url' => $site_url,
+    'items' => [$item],
+  ]);
+}
+
+/**
+ * Delete a node from federated search.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The node to delete.
+ */
+function federated_search_hub_delete_node(\Drupal\node\NodeInterface $node) {
+  $server_storage = \Drupal::entityTypeManager()->getStorage('search_api_server');
+  $server = $server_storage->load('pantheon_search');
+
+  if (!$server) {
+    return;
+  }
+
+  $backend = $server->getBackend();
+  $connector = $backend->getSolrConnector();
+
+  $solr_id = 'federated:danny-drupal-cms:node:' . $node->id();
+
+  $update = $connector->getUpdateQuery();
+  $update->addDeleteById($solr_id);
+  $update->addCommit();
+
+  $connector->update($update);
+}

@@ -1,0 +1,10 @@
+hub_site_id: danny-drupal-cms
+site_labels:
+  - site_id: danny-drupal-cms
+    label: 'Hub Site'
+  - site_id: test-term-drupal-11
+    label: 'Test Term Drupal 11'
+  - site_id: drupal-11-downstream-1
+    label: 'Drupal 11 Downstream 1'
+  - site_id: test-site
+    label: 'Test Site'

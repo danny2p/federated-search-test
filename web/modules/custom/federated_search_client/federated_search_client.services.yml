@@ -1,0 +1,13 @@
+services:
+  federated_search_client.exporter:
+    class: Drupal\federated_search_client\Service\BatchExporter
+    arguments:
+      - '@entity_type.manager'
+      - '@config.factory'
+      - '@http_client'
+      - '@logger.channel.federated_search_client'
+      - '@state'
+
+  logger.channel.federated_search_client:
+    parent: logger.channel_base
+    arguments: ['federated_search_client']

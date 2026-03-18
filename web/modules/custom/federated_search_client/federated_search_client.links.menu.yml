@@ -1,0 +1,6 @@
+federated_search_client.settings:
+  title: 'Federated Search Client'
+  description: 'Configure federated search synchronization settings.'
+  parent: system.admin_config_search
+  route_name: federated_search_client.settings
+  weight: 10

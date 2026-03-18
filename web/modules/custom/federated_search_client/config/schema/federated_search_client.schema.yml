@@ -1,0 +1,34 @@
+federated_search_client.settings:
+  type: config_object
+  label: 'Federated Search Client settings'
+  mapping:
+    enabled:
+      type: boolean
+      label: 'Enable automatic sync'
+    hub_url:
+      type: string
+      label: 'Hub URL'
+    site_id:
+      type: string
+      label: 'Site ID'
+    site_url:
+      type: string
+      label: 'Site URL'
+    content_types:
+      type: sequence
+      label: 'Content types to index'
+      sequence:
+        type: string
+        label: 'Content type'
+    custom_fields:
+      type: sequence
+      label: 'Custom fields to include'
+      sequence:
+        type: string
+        label: 'Field name'
+    batch_size:
+      type: integer
+      label: 'Batch size'
+    sync_interval:
+      type: integer
+      label: 'Sync interval (seconds)'

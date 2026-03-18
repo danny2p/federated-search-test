@@ -1,0 +1,9 @@
+name: 'Federated Search Hub'
+type: module
+description: 'Central hub for federated search across multiple Pantheon Drupal sites. Provides API endpoints for remote sites to index content and query the central Solr instance.'
+package: Search
+core_version_requirement: ^11
+dependencies:
+  - drupal:search_api
+  - search_api_solr:search_api_solr
+  - search_api_pantheon:search_api_pantheon

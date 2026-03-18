@@ -1,0 +1,6 @@
+federated_search_hub.site_labels:
+  title: 'Federated Search Site Labels'
+  description: 'Configure user-friendly labels for federated sites'
+  route_name: federated_search_hub.site_labels
+  parent: search_api.overview
+  weight: 10

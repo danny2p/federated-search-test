@@ -1,0 +1,24 @@
+services:
+  federated_search_hub.indexer:
+    class: Drupal\federated_search_hub\Service\FederatedIndexer
+    arguments:
+      - '@entity_type.manager'
+      - '@search_api.index_task_manager'
+      - '@logger.channel.federated_search_hub'
+
+  logger.channel.federated_search_hub:
+    parent: logger.channel_base
+    arguments: ['federated_search_hub']
+
+  federated_search_hub.site_label_manager:
+    class: Drupal\federated_search_hub\SiteLabelManager
+    arguments:
+      - '@config.factory'
+
+  federated_search_hub.commands:
+    class: Drupal\federated_search_hub\Commands\HubIndexCommands
+    arguments:
+      - '@entity_type.manager'
+      - '@federated_search_hub.indexer'
+    tags:
+      - { name: drush.command }

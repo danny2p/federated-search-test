@@ -1,0 +1,77 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - federated_search_hub
+id: federated_content
+name: 'Federated Content'
+description: 'Search index for content from federated sites'
+read_only: true
+field_settings:
+  title:
+    label: Title
+    datasource_id: federated_content
+    property_path: title
+    type: text
+    boost: 8.0
+  body:
+    label: Body
+    datasource_id: federated_content
+    property_path: body
+    type: text
+    boost: 1.0
+  summary:
+    label: Summary
+    datasource_id: federated_content
+    property_path: summary
+    type: text
+    boost: 2.0
+  url:
+    label: URL
+    datasource_id: federated_content
+    property_path: url
+    type: string
+  site_id:
+    label: 'Site ID'
+    datasource_id: federated_content
+    property_path: site_id
+    type: string
+  site_url:
+    label: 'Site URL'
+    datasource_id: federated_content
+    property_path: site_url
+    type: string
+  created:
+    label: Created
+    datasource_id: federated_content
+    property_path: created
+    type: date
+  changed:
+    label: Changed
+    datasource_id: federated_content
+    property_path: changed
+    type: date
+datasource_settings:
+  federated_content: {  }
+processor_settings:
+  rendered_item: {  }
+  html_filter:
+    weights:
+      preprocess_index: -10
+      preprocess_query: -10
+  highlight:
+    highlight: always
+    highlight_partial: true
+    excerpt: true
+    excerpt_length: 256
+    exclude_fields: {  }
+    prefix: '<strong>'
+    suffix: '</strong>'
+    weights:
+      postprocess_query: 0
+tracker_settings:
+  default: {  }
+options:
+  index_directly: false
+  cron_limit: 50
+server: pantheon_search

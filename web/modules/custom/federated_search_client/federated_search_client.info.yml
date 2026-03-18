@@ -1,0 +1,8 @@
+name: 'Federated Search Client'
+type: module
+description: 'Client module for syncing content to a federated search hub. Install this on remote sites to push content to the central search index.'
+package: Search
+core_version_requirement: ^11
+dependencies:
+  - drupal:node
+configure: federated_search_client.settings
