@@ -1,48 +1,117 @@
 <?php
+/**
+ * Federated Search Widget - Server-Side Implementation
+ *
+ * This widget performs federated search using server-side PHP,
+ * keeping the API key secure and avoiding CORS issues.
+ */
 
+// Configuration
+$hub_url = 'https://dev-your-site-name.pantheonsite.io';
+
+// Get API key from Pantheon Secrets (server-side only, never exposed to client)
 if (function_exists('pantheon_get_secret')) {
-  $valid_key = pantheon_get_secret('FEDERATED_SEARCH_API_KEY');
+  $api_key = pantheon_get_secret('FEDERATED_SEARCH_API_KEY');
 } else {
-  // Fallback for local development - use environment variable
-  $valid_key = getenv('FEDERATED_SEARCH_API_KEY');
+  $api_key = getenv('FEDERATED_SEARCH_API_KEY');
+}
+
+// Initialize variables
+$search_results = null;
+$error_message = null;
+$search_query = '';
+$current_page = 0;
+$results_per_page = 10;
+
+// Handle search request
+if (!empty($_GET['q'])) {
+  $search_query = trim($_GET['q']);
+  $current_page = isset($_GET['page']) ? max(0, intval($_GET['page'])) : 0;
+  $start = $current_page * $results_per_page;
+
+  // Build query parameters
+  $params = [
+    'q' => $search_query,
+    'start' => $start,
+    'rows' => $results_per_page,
+    'hl' => 'true',
+  ];
+
+  // Add site filter if provided
+  if (!empty($_GET['site'])) {
+    $params['site'] = $_GET['site'];
+  }
+
+  // Build URL
+  $query_url = $hub_url . '/solr-proxy.php?' . http_build_query($params);
+
+  // Make request to hub
+  $ch = curl_init($query_url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'X-Federated-Search-Key: ' . $api_key
+  ]);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+  $response = curl_exec($ch);
+  $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+
+  if ($response && $http_code === 200) {
+    $search_results = json_decode($response, true);
+  } else {
+    $error_data = json_decode($response, true);
+    $error_message = $error_data['error'] ?? 'Search request failed';
+  }
 }
 ?>
-
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Federated Search Widget Example</title>
+  <title>Federated Search</title>
   <style>
-    /* Federated Search Widget Styles */
-    .federated-search-widget {
-      max-width: 800px;
-      margin: 2rem auto;
+    body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
     }
 
-    .federated-search-form {
+    .search-header {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      margin: 0 0 1.5rem 0;
+      color: #333;
+    }
+
+    .search-form {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1.5rem;
     }
 
-    .federated-search-input {
+    .search-input {
       flex: 1;
       padding: 0.75rem 1rem;
       font-size: 1rem;
-      border: 2px solid #ccc;
+      border: 2px solid #ddd;
       border-radius: 4px;
       outline: none;
-      transition: border-color 0.2s;
     }
 
-    .federated-search-input:focus {
+    .search-input:focus {
       border-color: #0073aa;
     }
 
-    .federated-search-button {
+    .search-button {
       padding: 0.75rem 2rem;
       font-size: 1rem;
       background: #0073aa;
@@ -50,424 +119,220 @@ if (function_exists('pantheon_get_secret')) {
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      transition: background 0.2s;
+      font-weight: 600;
     }
 
-    .federated-search-button:hover {
+    .search-button:hover {
       background: #005177;
     }
 
-    .federated-search-button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .federated-search-filters {
+    .search-stats {
+      color: #666;
       margin-bottom: 1rem;
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
+      font-size: 0.9rem;
     }
 
-    .federated-search-filter {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 4px;
+      border-left: 4px solid #f5c6cb;
+      margin-bottom: 1rem;
     }
 
-    .federated-search-results {
-      min-height: 100px;
-    }
-
-    .federated-search-loading {
-      text-align: center;
+    .no-results {
+      background: white;
       padding: 2rem;
+      border-radius: 8px;
+      text-align: center;
       color: #666;
     }
 
-    .federated-search-error {
-      padding: 1rem;
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-    }
-
-    .federated-search-result {
+    .result {
+      background: white;
       padding: 1.5rem;
       margin-bottom: 1rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: box-shadow 0.2s;
     }
 
-    .federated-search-result:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    .result:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
 
-    .federated-search-result-title {
+    .result-title {
       margin: 0 0 0.5rem 0;
       font-size: 1.25rem;
     }
 
-    .federated-search-result-title a {
+    .result-title a {
       color: #0073aa;
       text-decoration: none;
     }
 
-    .federated-search-result-title a:hover {
+    .result-title a:hover {
       text-decoration: underline;
     }
 
-    .federated-search-result-meta {
-      font-size: 0.875rem;
+    .result-meta {
       color: #666;
+      font-size: 0.875rem;
       margin-bottom: 0.5rem;
     }
 
-    .federated-search-result-snippet {
+    .result-snippet {
       color: #333;
       line-height: 1.6;
     }
 
-    .federated-search-result-snippet strong {
+    .result-snippet strong {
       background: #ffeb3b;
       padding: 0 2px;
     }
 
-    .federated-search-pagination {
+    .pagination {
       display: flex;
       justify-content: center;
       gap: 0.5rem;
       margin-top: 2rem;
     }
 
-    .federated-search-page-button {
+    .page-link {
       padding: 0.5rem 1rem;
-      background: #f0f0f0;
-      border: 1px solid #ccc;
+      background: white;
+      border: 1px solid #ddd;
       border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
+      text-decoration: none;
+      color: #333;
     }
 
-    .federated-search-page-button:hover {
-      background: #e0e0e0;
+    .page-link:hover {
+      background: #f0f0f0;
     }
 
-    .federated-search-page-button.active {
+    .page-link.active {
       background: #0073aa;
       color: white;
       border-color: #0073aa;
     }
 
-    .federated-search-stats {
-      color: #666;
-      margin-bottom: 1rem;
+    .page-link.disabled {
+      opacity: 0.5;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
 
-<div class="federated-search-widget" id="federatedSearch">
-  <!-- Search Form -->
-  <form class="federated-search-form" id="searchForm">
+<div class="search-header">
+  <h1>🔍 Federated Search</h1>
+  <form class="search-form" method="get" action="">
     <input
       type="text"
-      class="federated-search-input"
-      id="searchInput"
+      name="q"
+      class="search-input"
       placeholder="Search across all sites..."
+      value="<?php echo htmlspecialchars($search_query); ?>"
       required
     >
-    <button type="submit" class="federated-search-button" id="searchButton">
-      Search
-    </button>
+    <button type="submit" class="search-button">Search</button>
   </form>
-
-  <!-- Filters -->
-  <div class="federated-search-filters" id="searchFilters">
-    <div class="federated-search-filter">
-      <label>
-        <input type="radio" name="site_filter" value="" checked> All Sites
-      </label>
-    </div>
-    <!-- Site filters will be populated dynamically -->
-  </div>
-
-  <!-- Results Container -->
-  <div class="federated-search-results" id="searchResults">
-    <!-- Results will be inserted here -->
-  </div>
 </div>
 
-<script>
-/**
- * Federated Search Widget
- *
- * Configuration: Update these values for your setup
- */
-const FEDERATED_SEARCH_CONFIG = {
-  // Hub URL - Your central search hub
-  hubUrl: 'https://dev-your-site-name.pantheonsite.io',
+<?php if ($error_message): ?>
+  <div class="error-message">
+    <strong>Error:</strong> <?php echo htmlspecialchars($error_message); ?>
+  </div>
+<?php endif; ?>
 
-  // API Key - Stored in Pantheon Secrets
-  // IMPORTANT: For production, retrieve this from your backend, not client-side
-  // This example shows client-side for demonstration only
-  apiKey: '<?php echo $valid_key; ?>',
+<?php if ($search_results): ?>
+  <?php
+    $num_found = $search_results['response']['numFound'] ?? 0;
+    $docs = $search_results['response']['docs'] ?? [];
+    $highlighting = $search_results['highlighting'] ?? [];
+  ?>
 
-  // Results per page
-  resultsPerPage: 10,
+  <div class="search-stats">
+    Found <?php echo number_format($num_found); ?> result<?php echo $num_found !== 1 ? 's' : ''; ?>
+    for "<?php echo htmlspecialchars($search_query); ?>"
+  </div>
 
-  // Enable highlighting
-  enableHighlighting: true,
+  <?php if (empty($docs)): ?>
+    <div class="no-results">
+      No results found for "<?php echo htmlspecialchars($search_query); ?>"
+    </div>
+  <?php else: ?>
+    <?php foreach ($docs as $doc): ?>
+      <?php
+        $title = $doc['tm_X3b_en_title'][0] ?? $doc['ss_title'] ?? 'Untitled';
+        $url = $doc['ss_url'] ?? '#';
+        $site_name = $doc['ss_site_id'] ?? 'Unknown Site';
 
-  // Site filter options (leave empty to auto-detect from results)
-  sites: [
-//   { id: 'marketing', name: 'Marketing Site' },
-//    { id: 'blog', name: 'Blog' },
-//    { id: 'docs', name: 'Documentation' }
-  ]
-};
-
-/**
- * Federated Search Widget Class
- */
-class FederatedSearchWidget {
-  constructor(config) {
-    this.config = config;
-    this.currentPage = 0;
-    this.totalResults = 0;
-    this.currentQuery = '';
-    this.currentSiteFilter = '';
-
-    this.init();
-  }
-
-  init() {
-    // Bind form submission
-    document.getElementById('searchForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.search();
-    });
-
-    // Bind site filters
-    const filtersContainer = document.getElementById('searchFilters');
-    this.config.sites.forEach(site => {
-      const filterDiv = document.createElement('div');
-      filterDiv.className = 'federated-search-filter';
-      filterDiv.innerHTML = `
-        <label>
-          <input type="radio" name="site_filter" value="${site.id}"> ${site.name}
-        </label>
-      `;
-      filtersContainer.appendChild(filterDiv);
-    });
-
-    // Bind filter changes
-    document.querySelectorAll('input[name="site_filter"]').forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        this.currentSiteFilter = e.target.value;
-        if (this.currentQuery) {
-          this.search();
+        // Get snippet from highlighting or body
+        $snippet = '';
+        if (!empty($highlighting[$doc['id']])) {
+          $hl = $highlighting[$doc['id']];
+          if (!empty($hl['tm_X3b_en_body'])) {
+            $snippet = $hl['tm_X3b_en_body'][0];
+          } elseif (!empty($hl['tm_X3b_en_title'])) {
+            $snippet = $hl['tm_X3b_en_title'][0];
+          }
         }
-      });
-    });
-
-    // Check for query in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const query = urlParams.get('q');
-    if (query) {
-      document.getElementById('searchInput').value = query;
-      this.search();
-    }
-  }
-
-  async search(page = 0) {
-    const input = document.getElementById('searchInput');
-    const button = document.getElementById('searchButton');
-    const resultsContainer = document.getElementById('searchResults');
-
-    this.currentQuery = input.value.trim();
-    this.currentPage = page;
-
-    if (!this.currentQuery) {
-      return;
-    }
-
-    // Update UI
-    button.disabled = true;
-    button.textContent = 'Searching...';
-    resultsContainer.innerHTML = '<div class="federated-search-loading">Searching...</div>';
-
-    try {
-      const results = await this.executeSearch();
-      this.renderResults(results);
-    } catch (error) {
-      this.renderError(error.message);
-    } finally {
-      button.disabled = false;
-      button.textContent = 'Search';
-    }
-  }
-
-  async executeSearch() {
-    // Build query parameters
-    const params = new URLSearchParams({
-      q: this.currentQuery,
-      start: this.currentPage * this.config.resultsPerPage,
-      rows: this.config.resultsPerPage,
-      hl: this.config.enableHighlighting ? 'true' : 'false'
-    });
-
-    // Add site filter if selected
-    if (this.currentSiteFilter) {
-      params.append('site', this.currentSiteFilter);
-    }
-
-    // Build URL
-    const url = `${this.config.hubUrl}/solr-proxy.php?${params.toString()}`;
-
-    // Execute request
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Federated-Search-Key': this.config.apiKey
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  renderResults(data) {
-    const resultsContainer = document.getElementById('searchResults');
-    const docs = data.response.docs;
-    const numFound = data.response.numFound;
-
-    this.totalResults = numFound;
-
-    if (docs.length === 0) {
-      resultsContainer.innerHTML = `
-        <div class="federated-search-error">
-          No results found for "${this.currentQuery}"
+        if (empty($snippet) && !empty($doc['tm_X3b_en_body'][0])) {
+          $snippet = substr($doc['tm_X3b_en_body'][0], 0, 200);
+          if (strlen($doc['tm_X3b_en_body'][0]) > 200) {
+            $snippet .= '...';
+          }
+        }
+      ?>
+      <div class="result">
+        <h2 class="result-title">
+          <a href="<?php echo htmlspecialchars($url); ?>" target="_blank">
+            <?php echo htmlspecialchars($title); ?>
+          </a>
+        </h2>
+        <div class="result-meta">
+          From: <?php echo htmlspecialchars($site_name); ?>
         </div>
-      `;
-      return;
-    }
-
-    // Build results HTML
-    let html = `
-      <div class="federated-search-stats">
-        Found ${numFound} results for "${this.currentQuery}"
-      </div>
-    `;
-
-    docs.forEach(doc => {
-      const title = doc.tm_X3b_en_title?.[0] || doc.ss_title || 'Untitled';
-      const url = doc.ss_url || '#';
-      const siteName = doc.ss_site_id || 'Unknown Site';
-      const snippet = this.getSnippet(doc, data.highlighting);
-
-      html += `
-        <div class="federated-search-result">
-          <h3 class="federated-search-result-title">
-            <a href="${url}" target="_blank">${title}</a>
-          </h3>
-          <div class="federated-search-result-meta">
-            From: ${siteName}
+        <?php if ($snippet): ?>
+          <div class="result-snippet">
+            <?php echo $snippet; ?>
           </div>
-          <div class="federated-search-result-snippet">
-            ${snippet}
-          </div>
-        </div>
-      `;
-    });
-
-    // Add pagination
-    html += this.renderPagination();
-
-    resultsContainer.innerHTML = html;
-  }
-
-  getSnippet(doc, highlighting) {
-    // Try to get highlighted snippet
-    if (highlighting && highlighting[doc.id]) {
-      const hl = highlighting[doc.id];
-      if (hl.tm_X3b_en_body || hl.tm_X3b_en_title) {
-        return (hl.tm_X3b_en_body || hl.tm_X3b_en_title)[0];
-      }
-    }
-
-    // Fallback to body or summary
-    const body = doc.tm_X3b_en_body?.[0] || doc.tm_summary?.[0] || '';
-    return body.substring(0, 200) + (body.length > 200 ? '...' : '');
-  }
-
-  renderPagination() {
-    const totalPages = Math.ceil(this.totalResults / this.config.resultsPerPage);
-
-    if (totalPages <= 1) {
-      return '';
-    }
-
-    let html = '<div class="federated-search-pagination">';
-
-    // Previous button
-    if (this.currentPage > 0) {
-      html += `
-        <button class="federated-search-page-button" onclick="federatedSearch.search(${this.currentPage - 1})">
-          &laquo; Previous
-        </button>
-      `;
-    }
-
-    // Page numbers (show max 5)
-    const startPage = Math.max(0, this.currentPage - 2);
-    const endPage = Math.min(totalPages, startPage + 5);
-
-    for (let i = startPage; i < endPage; i++) {
-      const activeClass = i === this.currentPage ? 'active' : '';
-      html += `
-        <button class="federated-search-page-button ${activeClass}" onclick="federatedSearch.search(${i})">
-          ${i + 1}
-        </button>
-      `;
-    }
-
-    // Next button
-    if (this.currentPage < totalPages - 1) {
-      html += `
-        <button class="federated-search-page-button" onclick="federatedSearch.search(${this.currentPage + 1})">
-          Next &raquo;
-        </button>
-      `;
-    }
-
-    html += '</div>';
-    return html;
-  }
-
-  renderError(message) {
-    const resultsContainer = document.getElementById('searchResults');
-    resultsContainer.innerHTML = `
-      <div class="federated-search-error">
-        <strong>Search Error:</strong> ${message}
+        <?php endif; ?>
       </div>
-    `;
-  }
-}
+    <?php endforeach; ?>
 
-// Initialize widget
-let federatedSearch;
-document.addEventListener('DOMContentLoaded', () => {
-  federatedSearch = new FederatedSearchWidget(FEDERATED_SEARCH_CONFIG);
-});
-</script>
+    <?php
+      $total_pages = ceil($num_found / $results_per_page);
+      if ($total_pages > 1):
+    ?>
+      <div class="pagination">
+        <?php if ($current_page > 0): ?>
+          <a href="?q=<?php echo urlencode($search_query); ?>&page=<?php echo $current_page - 1; ?>"
+             class="page-link">← Previous</a>
+        <?php endif; ?>
+
+        <?php
+          $start_page = max(0, $current_page - 2);
+          $end_page = min($total_pages, $start_page + 5);
+          for ($i = $start_page; $i < $end_page; $i++):
+        ?>
+          <a href="?q=<?php echo urlencode($search_query); ?>&page=<?php echo $i; ?>"
+             class="page-link <?php echo $i === $current_page ? 'active' : ''; ?>">
+            <?php echo $i + 1; ?>
+          </a>
+        <?php endfor; ?>
+
+        <?php if ($current_page < $total_pages - 1): ?>
+          <a href="?q=<?php echo urlencode($search_query); ?>&page=<?php echo $current_page + 1; ?>"
+             class="page-link">Next →</a>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+  <?php endif; ?>
+<?php endif; ?>
 
 </body>
 </html>
