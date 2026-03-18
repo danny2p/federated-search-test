@@ -46,7 +46,7 @@ Navigate to: `/admin/config/search/federated-search-client`
 
 Required settings:
 - **Hub URL** - Base URL of your hub site
-  - Example: `https://danny-drupal-cms.pantheonsite.io`
+  - Example: `https://your-site-name.pantheonsite.io`
 - **Site ID** - Unique identifier for this site
   - Use lowercase, numbers, hyphens only
   - Examples: `marketing`, `blog`, `site-docs`
@@ -63,7 +63,7 @@ Edit `config/sync/federated_search_client.settings.yml`:
 
 ```yaml
 enabled: true
-hub_url: 'https://danny-drupal-cms.pantheonsite.io'
+hub_url: 'https://your-site-name.pantheonsite.io'
 site_id: 'marketing'
 site_url: ''
 content_types:

@@ -49,7 +49,7 @@ class SettingsForm extends ConfigFormBase {
     $form['connection']['hub_url'] = [
       '#type' => 'url',
       '#title' => $this->t('Hub URL'),
-      '#description' => $this->t('The base URL of your federated search hub site (e.g., https://danny-drupal-cms.pantheonsite.io)'),
+      '#description' => $this->t('The base URL of your federated search hub site (e.g., https://your-site-name.pantheonsite.io)'),
       '#default_value' => $config->get('hub_url'),
       '#required' => TRUE,
     ];

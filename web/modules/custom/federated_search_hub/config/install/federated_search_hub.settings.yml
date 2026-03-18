@@ -1,6 +1,6 @@
-hub_site_id: danny-drupal-cms
+hub_site_id: your-site-name
 site_labels:
-  - site_id: danny-drupal-cms
+  - site_id: your-site-name
     label: 'Hub Site'
   - site_id: test-term-drupal-11
     label: 'Test Term Drupal 11'

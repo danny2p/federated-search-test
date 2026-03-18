@@ -39,7 +39,7 @@ class SiteLabelsForm extends ConfigFormBase {
       '#type' => 'textfield',
       '#title' => $this->t('Hub Site ID'),
       '#description' => $this->t('The site ID to use when indexing content from this hub site. This should match one of the site IDs in the labels below.'),
-      '#default_value' => $config->get('hub_site_id') ?: 'danny-drupal-cms',
+      '#default_value' => $config->get('hub_site_id') ?: 'your-site-name',
       '#required' => TRUE,
     ];
 

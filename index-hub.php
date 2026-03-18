@@ -4,7 +4,7 @@ use Drupal\node\NodeInterface;
 
 $indexer = \Drupal::service('federated_search_hub.indexer');
 $entity_type_manager = \Drupal::service('entity_type.manager');
-$site_id = 'danny-drupal-cms';
+$site_id = 'your-site-name';
 $site_url = \Drupal::request()->getSchemeAndHttpHost();
 
 $node_storage = $entity_type_manager->getStorage('node');

@@ -2,11 +2,11 @@
 
 ## Overview
 
-A complete federated search solution for multiple Pantheon Drupal 11 sites has been implemented. The system allows a central hub site (danny-drupal-cms) to index and search content from multiple remote Drupal sites.
+A complete federated search solution for multiple Pantheon Drupal 11 sites has been implemented. The system allows a central hub site (your-site-name) to index and search content from multiple remote Drupal sites.
 
 ## What Was Implemented
 
-### 1. Hub Infrastructure (danny-drupal-cms)
+### 1. Hub Infrastructure (your-site-name)
 
 **Files Created:**
 
@@ -293,7 +293,7 @@ drush en federated_search_hub -y
 **Module Settings:**
 ```yaml
 enabled: true
-hub_url: 'https://danny-drupal-cms.pantheonsite.io'
+hub_url: 'https://your-site-name.pantheonsite.io'
 site_id: 'unique-site-id'
 content_types: ['article', 'page']
 batch_size: 50
@@ -425,7 +425,7 @@ terminus drush site.live -- en federated_search_hub -y
 # 5. Update clients to point to Live
 terminus drush client.live -- config:set \
   federated_search_client.settings hub_url \
-  "https://danny-drupal-cms.pantheonsite.io"
+  "https://your-site-name.pantheonsite.io"
 ```
 
 ## Monitoring & Maintenance

@@ -61,7 +61,7 @@ class HubIndexCommands extends DrushCommands {
    * @aliases fsh:index-hub
    * @usage federated-search-hub:index-hub
    *   Index all hub site content into federated search.
-   * @usage federated-search-hub:index-hub danny-drupal-cms
+   * @usage federated-search-hub:index-hub your-site-name
    *   Index hub content with specific site ID.
    */
   public function indexHub($siteId = NULL) {

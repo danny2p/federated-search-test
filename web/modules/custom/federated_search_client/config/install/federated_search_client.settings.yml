@@ -4,7 +4,7 @@
 enabled: false
 
 # Hub URL - The base URL of your federated search hub site
-# Example: https://danny-drupal-cms.pantheonsite.io
+# Example: https://your-site-name.pantheonsite.io
 hub_url: ''
 
 # Site ID - Unique identifier for this site in the federated index

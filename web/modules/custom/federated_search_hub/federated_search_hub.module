@@ -84,7 +84,7 @@ function federated_search_hub_index_node(\Drupal\node\NodeInterface $node) {
   $indexer = \Drupal::service('federated_search_hub.indexer');
   $config = \Drupal::config('federated_search_hub.settings');
 
-  $site_id = $config->get('hub_site_id') ?: 'danny-drupal-cms';
+  $site_id = $config->get('hub_site_id') ?: 'your-site-name';
   $site_url = \Drupal::request()->getSchemeAndHttpHost();
 
   $item = [
@@ -140,7 +140,7 @@ function federated_search_hub_delete_node(\Drupal\node\NodeInterface $node) {
   $backend = $server->getBackend();
   $connector = $backend->getSolrConnector();
 
-  $solr_id = 'federated:danny-drupal-cms:node:' . $node->id();
+  $solr_id = 'federated:your-site-name:node:' . $node->id();
 
   $update = $connector->getUpdateQuery();
   $update->addDeleteById($solr_id);

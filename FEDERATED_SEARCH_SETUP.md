@@ -7,7 +7,7 @@ Complete guide to setting up federated search across multiple Pantheon Drupal si
 This guide walks you through setting up a central search hub that indexes content from multiple Drupal sites, all hosted on Pantheon.
 
 **Architecture:**
-- **Hub Site** (danny-drupal-cms) - Central search server
+- **Hub Site** (your-site-name) - Central search server
 - **Client Sites** (4-10 sites) - Push content to hub via API
 - **Authentication** - Pantheon Secrets Manager
 - **Search Engine** - Pantheon Solr 8
@@ -19,7 +19,7 @@ This guide walks you through setting up a central search hub that indexes conten
 - Solr 8 enabled on hub site
 - Drush access to all sites
 
-## Phase 1: Hub Setup (danny-drupal-cms)
+## Phase 1: Hub Setup (your-site-name)
 
 ### Step 1: Enable Solr
 
@@ -42,13 +42,13 @@ git push origin master
 
 ```bash
 # Enable the module
-terminus drush danny-drupal-cms.dev -- en federated_search_hub -y
+terminus drush your-site-name.dev -- en federated_search_hub -y
 
 # Clear cache
-terminus drush danny-drupal-cms.dev -- cr
+terminus drush your-site-name.dev -- cr
 
 # Verify Search API is configured
-terminus drush danny-drupal-cms.dev -- search-api:status
+terminus drush your-site-name.dev -- search-api:status
 ```
 
 ### Step 3: Configure Pantheon Secret
@@ -88,14 +88,14 @@ Test the endpoints:
 
 # Test status endpoint
 curl -H "X-Federated-Search-Key: YOUR_KEY_HERE" \
-  "https://dev-danny-drupal-cms.pantheonsite.io/federated-search/status"
+  "https://dev-your-site-name.pantheonsite.io/federated-search/status"
 
 # Expected response:
 # {"status":"success","data":{"total_documents":0,"sites":{}}}
 
 # Test search proxy
 curl -H "X-Federated-Search-Key: YOUR_KEY_HERE" \
-  "https://dev-danny-drupal-cms.pantheonsite.io/solr-proxy.php?q=*:*"
+  "https://dev-your-site-name.pantheonsite.io/solr-proxy.php?q=*:*"
 ```
 
 ## Phase 2: Client Site Setup
@@ -107,9 +107,9 @@ Repeat these steps for each remote site that will push content to the hub.
 **Copy the module to your client site:**
 
 ```bash
-# From danny-drupal-cms, copy the client module
+# From your-site-name, copy the client module
 cd /path/to/client-site
-rsync -av /path/to/danny-drupal-cms/web/modules/custom/federated_search_client/ \
+rsync -av /path/to/your-site-name/web/modules/custom/federated_search_client/ \
   web/modules/custom/federated_search_client/
 
 # Or clone if in version control
@@ -129,7 +129,7 @@ terminus drush client-site.dev -- cr
 
 1. Go to `/admin/config/search/federated-search-client`
 2. Configure:
-   - **Hub URL:** `https://dev-danny-drupal-cms.pantheonsite.io`
+   - **Hub URL:** `https://dev-your-site-name.pantheonsite.io`
    - **Site ID:** Unique ID (e.g., `marketing`, `blog`, `docs`)
    - **Content Types:** Select which types to sync
    - **Enable automatic sync:** Check the box
@@ -140,7 +140,7 @@ terminus drush client-site.dev -- cr
 ```bash
 # Configure settings
 terminus drush client-site.dev -- config:set federated_search_client.settings enabled 1
-terminus drush client-site.dev -- config:set federated_search_client.settings hub_url "https://dev-danny-drupal-cms.pantheonsite.io"
+terminus drush client-site.dev -- config:set federated_search_client.settings hub_url "https://dev-your-site-name.pantheonsite.io"
 terminus drush client-site.dev -- config:set federated_search_client.settings site_id "marketing"
 
 # For specific content types (YAML format)
@@ -167,7 +167,7 @@ terminus drush client-site.dev -- state:get federated_search_client.last_sync
 ```bash
 # On hub, check status
 curl -H "X-Federated-Search-Key: YOUR_KEY" \
-  "https://dev-danny-drupal-cms.pantheonsite.io/federated-search/status?site_id=marketing"
+  "https://dev-your-site-name.pantheonsite.io/federated-search/status?site_id=marketing"
 
 # Should show:
 # {"status":"success","data":{"total_documents":50,"sites":{"marketing":50}}}
@@ -193,22 +193,22 @@ terminus drush client-site.dev -- watchdog:show --type=federated_search_client
 
 ```bash
 # Commit custom modules
-cd /path/to/danny-drupal-cms
+cd /path/to/your-site-name
 git add web/modules/custom/federated_search_hub web/solr-proxy.php
 git commit -m "Add federated search hub"
 git push origin master
 
 # Deploy to Test
-terminus env:deploy danny-drupal-cms.test --sync-content --updatedb
+terminus env:deploy your-site-name.test --sync-content --updatedb
 
 # Enable module on Test
-terminus drush danny-drupal-cms.test -- en federated_search_hub -y
+terminus drush your-site-name.test -- en federated_search_hub -y
 
 # Deploy to Live
-terminus env:deploy danny-drupal-cms.live --updatedb
+terminus env:deploy your-site-name.live --updatedb
 
 # Enable module on Live
-terminus drush danny-drupal-cms.live -- en federated_search_hub -y
+terminus drush your-site-name.live -- en federated_search_hub -y
 ```
 
 ### Step 2: Update Client Sites to Point to Live
@@ -217,7 +217,7 @@ terminus drush danny-drupal-cms.live -- en federated_search_hub -y
 
 ```bash
 # For each client site
-terminus drush client-site.live -- config:set federated_search_client.settings hub_url "https://danny-drupal-cms.pantheonsite.io"
+terminus drush client-site.live -- config:set federated_search_client.settings hub_url "https://your-site-name.pantheonsite.io"
 
 # Re-sync to Live hub
 terminus drush client-site.live -- fs-reset
@@ -229,7 +229,7 @@ terminus drush client-site.live -- fs-sync --limit=500
 ```bash
 # Check Live hub status
 curl -H "X-Federated-Search-Key: YOUR_KEY" \
-  "https://danny-drupal-cms.pantheonsite.io/federated-search/status"
+  "https://your-site-name.pantheonsite.io/federated-search/status"
 
 # Should show all sites:
 # {
@@ -266,7 +266,7 @@ Each site has its own search form that queries the hub.
 ```php
 // In your theme or custom module
 function mysite_form_search_alter(&$form, $form_state, $form_id) {
-  $form['#action'] = 'https://danny-drupal-cms.pantheonsite.io/search';
+  $form['#action'] = 'https://your-site-name.pantheonsite.io/search';
   $form['#method'] = 'get';
 }
 ```
@@ -297,11 +297,11 @@ fetch('https://hub.example.com/solr-proxy.php?q=drupal&site=marketing', {
 
 ```bash
 # Hub Solr status
-terminus drush danny-drupal-cms.live -- search-api:status
+terminus drush your-site-name.live -- search-api:status
 
 # Check document counts per site
 curl -H "X-Federated-Search-Key: YOUR_KEY" \
-  "https://danny-drupal-cms.pantheonsite.io/federated-search/status"
+  "https://your-site-name.pantheonsite.io/federated-search/status"
 ```
 
 ### Review Sync Logs
@@ -311,7 +311,7 @@ curl -H "X-Federated-Search-Key: YOUR_KEY" \
 terminus drush client-site.live -- watchdog:show --type=federated_search_client --count=50
 
 # Hub logs
-terminus drush danny-drupal-cms.live -- watchdog:show --type=federated_search_hub --count=50
+terminus drush your-site-name.live -- watchdog:show --type=federated_search_hub --count=50
 ```
 
 ### Manual Re-index
@@ -320,7 +320,7 @@ If you need to rebuild the entire index:
 
 ```bash
 # 1. Clear hub index
-terminus drush danny-drupal-cms.live -- search-api:clear
+terminus drush your-site-name.live -- search-api:clear
 
 # 2. On each client site, reset and re-sync
 terminus drush client-site.live -- fs-reset
@@ -363,7 +363,7 @@ curl -H "X-Federated-Search-Key: YOUR_KEY" \
   "https://hub.example.com/federated-search/status?site_id=client"
 
 # 3. Reindex if needed
-terminus drush danny-drupal-cms.live -- search-api:index
+terminus drush your-site-name.live -- search-api:index
 ```
 
 ### Problem: Search is slow
