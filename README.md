@@ -120,7 +120,7 @@ web/modules/custom/federated_search_client/
    - Common operations
    - Pro tips
 
-3. **FEDERATED_SEARCH_WIDGET.html** - JavaScript search widget
+3. **FEDERATED_SEARCH_WIDGET.php** - Drupal-free search widget
    - Complete standalone example
    - Copy-paste ready
    - Configurable
