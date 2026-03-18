@@ -73,7 +73,11 @@ function get_solr_connection() {
   $solr_core = getenv('PANTHEON_INDEX_CORE');
 
   if (empty($solr_host) || empty($solr_port) || empty($solr_path) || empty($solr_core)) {
-    send_error(500, 'Solr connection not configured');
+    send_error(500, 'Solr connection not configured. Missing: ' .
+      (empty($solr_host) ? 'host ' : '') .
+      (empty($solr_port) ? 'port ' : '') .
+      (empty($solr_path) ? 'path ' : '') .
+      (empty($solr_core) ? 'core' : ''));
   }
 
   return [
@@ -108,6 +112,8 @@ function build_solr_params() {
     'rows' => $rows,
     'wt' => 'json',
     'fl' => '*,score', // Return all fields plus relevance score
+    'defType' => 'edismax', // Use extended dismax query parser
+    'qf' => 'tm_X3b_en_title^2 tm_X3b_en_body', // Search these fields, boost title
   ];
 
   // Add site filter if specified
@@ -136,7 +142,7 @@ function build_solr_params() {
   // Add highlighting if requested
   if (!empty($_GET['hl']) && $_GET['hl'] === 'true') {
     $params['hl'] = 'true';
-    $params['hl.fl'] = 'tm_title,tm_body';
+    $params['hl.fl'] = 'tm_X3b_en_title,tm_X3b_en_body';
     $params['hl.simple.pre'] = '<strong>';
     $params['hl.simple.post'] = '</strong>';
     $params['hl.snippets'] = 3;
@@ -154,35 +160,37 @@ function execute_solr_query($solr_url, $params) {
   $query_string = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
   $full_url = $solr_url . '?' . $query_string;
 
-  // Initialize cURL
-  if (function_exists('pantheon_curl_setup')) {
-    // Use Pantheon's curl setup for proper SSL configuration
-    list($ch, $opts) = pantheon_curl_setup($full_url);
-  } else {
-    // Standard cURL setup for local development
-    $ch = curl_init($full_url);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-  }
+  // Initialize cURL - don't use pantheon_curl_setup for internal Pantheon connections
+  $ch = curl_init($full_url);
 
   // Set cURL options
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-  curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);  // Follow redirects
+  curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+  curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+  // For Pantheon's internal Solr, we don't need SSL verification
+  // as it's an internal mTLS connection
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 
   // Execute request
   $response = curl_exec($ch);
   $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
   $error = curl_error($ch);
+  $error_no = curl_errno($ch);
+  $effective_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+  $redirect_count = curl_getinfo($ch, CURLINFO_REDIRECT_COUNT);
   curl_close($ch);
 
-  // Handle errors
+  // Handle errors with more detail
   if ($response === false) {
-    send_error(502, 'Solr query failed: ' . $error);
+    send_error(502, 'Solr query failed [' . $error_no . ']: ' . $error . ' (URL: ' . parse_url($full_url, PHP_URL_HOST) . ')');
   }
 
   if ($http_code !== 200) {
-    send_error($http_code, 'Solr returned error: ' . $http_code);
+    send_error($http_code, 'Solr returned error: ' . $http_code . ' (Redirects: ' . $redirect_count . ', Final URL: ' . $effective_url . ') - ' . substr($response, 0, 200));
   }
 
   return $response;

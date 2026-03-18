@@ -224,9 +224,9 @@ const FEDERATED_SEARCH_CONFIG = {
 
   // Site filter options (leave empty to auto-detect from results)
   sites: [
-    { id: 'marketing', name: 'Marketing Site' },
-    { id: 'blog', name: 'Blog' },
-    { id: 'docs', name: 'Documentation' }
+//   { id: 'marketing', name: 'Marketing Site' },
+//    { id: 'blog', name: 'Blog' },
+//    { id: 'docs', name: 'Documentation' }
   ]
 };
 
@@ -368,7 +368,7 @@ class FederatedSearchWidget {
     `;
 
     docs.forEach(doc => {
-      const title = doc.tm_title?.[0] || doc.ss_title || 'Untitled';
+      const title = doc.tm_X3b_en_title?.[0] || doc.ss_title || 'Untitled';
       const url = doc.ss_url || '#';
       const siteName = doc.ss_site_id || 'Unknown Site';
       const snippet = this.getSnippet(doc, data.highlighting);
@@ -398,13 +398,13 @@ class FederatedSearchWidget {
     // Try to get highlighted snippet
     if (highlighting && highlighting[doc.id]) {
       const hl = highlighting[doc.id];
-      if (hl.tm_body || hl.tm_title) {
-        return (hl.tm_body || hl.tm_title)[0];
+      if (hl.tm_X3b_en_body || hl.tm_X3b_en_title) {
+        return (hl.tm_X3b_en_body || hl.tm_X3b_en_title)[0];
       }
     }
 
     // Fallback to body or summary
-    const body = doc.tm_body?.[0] || doc.tm_summary?.[0] || '';
+    const body = doc.tm_X3b_en_body?.[0] || doc.tm_summary?.[0] || '';
     return body.substring(0, 200) + (body.length > 200 ? '...' : '');
   }
 
