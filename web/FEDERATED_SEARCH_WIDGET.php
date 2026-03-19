@@ -7,7 +7,7 @@
  */
 
 // Configuration
-$hub_url = 'https://federated-danny-drupal-cms.pantheonsite.io';
+$hub_url = 'https://dev-your-site-name.pantheonsite.io';
 
 // Get API key from Pantheon Secrets (server-side only, never exposed to client)
 if (function_exists('pantheon_get_secret')) {
