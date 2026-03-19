@@ -7,7 +7,7 @@
  */
 
 // Configuration
-$hub_url = 'https://dev-your-site-name.pantheonsite.io';
+$hub_url = 'https://federated-danny-drupal-cms.pantheonsite.io';
 
 // Get API key from Pantheon Secrets (server-side only, never exposed to client)
 if (function_exists('pantheon_get_secret')) {
@@ -26,42 +26,52 @@ $results_per_page = 10;
 // Handle search request
 if (!empty($_GET['q'])) {
   $search_query = trim($_GET['q']);
-  $current_page = isset($_GET['page']) ? max(0, intval($_GET['page'])) : 0;
-  $start = $current_page * $results_per_page;
 
-  // Build query parameters
-  $params = [
-    'q' => $search_query,
-    'start' => $start,
-    'rows' => $results_per_page,
-    'hl' => 'true',
-  ];
-
-  // Add site filter if provided
-  if (!empty($_GET['site'])) {
-    $params['site'] = $_GET['site'];
-  }
-
-  // Build URL
-  $query_url = $hub_url . '/solr-proxy.php?' . http_build_query($params);
-
-  // Make request to hub
-  $ch = curl_init($query_url);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-  curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'X-Federated-Search-Key: ' . $api_key
-  ]);
-  curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-  $response = curl_exec($ch);
-  $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  curl_close($ch);
-
-  if ($response && $http_code === 200) {
-    $search_results = json_decode($response, true);
+  // Validate query length to prevent abuse
+  if (strlen($search_query) > 500) {
+    $error_message = 'Search query too long (maximum 500 characters)';
   } else {
-    $error_data = json_decode($response, true);
-    $error_message = $error_data['error'] ?? 'Search request failed';
+    $current_page = isset($_GET['page']) ? max(0, intval($_GET['page'])) : 0;
+    $start = $current_page * $results_per_page;
+
+    // Build query parameters
+    $params = [
+      'q' => $search_query,
+      'start' => $start,
+      'rows' => $results_per_page,
+      'hl' => 'true',
+    ];
+
+    // Add site filter if provided (sanitize to alphanumeric, underscore, hyphen only)
+    if (!empty($_GET['site'])) {
+      $site_filter = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['site']);
+      if (!empty($site_filter)) {
+        $params['site'] = $site_filter;
+      }
+    }
+
+    // Build URL
+    $query_url = $hub_url . '/solr-proxy.php?' . http_build_query($params);
+
+    // Make request to hub
+    $ch = curl_init($query_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+      'X-Federated-Search-Key: ' . $api_key
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response && $http_code === 200) {
+      $search_results = json_decode($response, true);
+    } else {
+      $error_data = json_decode($response, true);
+      // Sanitize error message to prevent information disclosure
+      $error_message = !empty($error_data['error']) ? 'Search error occurred' : 'Search request failed';
+    }
   }
 }
 ?>
@@ -234,7 +244,8 @@ if (!empty($_GET['q'])) {
       name="q"
       class="search-input"
       placeholder="Search across all sites..."
-      value="<?php echo htmlspecialchars($search_query); ?>"
+      value="<?php echo htmlspecialchars($search_query, ENT_QUOTES, 'UTF-8'); ?>"
+      maxlength="500"
       required
     >
     <button type="submit" class="search-button">Search</button>
@@ -243,7 +254,7 @@ if (!empty($_GET['q'])) {
 
 <?php if ($error_message): ?>
   <div class="error-message">
-    <strong>Error:</strong> <?php echo htmlspecialchars($error_message); ?>
+    <strong>Error:</strong> <?php echo htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8'); ?>
   </div>
 <?php endif; ?>
 
@@ -256,12 +267,12 @@ if (!empty($_GET['q'])) {
 
   <div class="search-stats">
     Found <?php echo number_format($num_found); ?> result<?php echo $num_found !== 1 ? 's' : ''; ?>
-    for "<?php echo htmlspecialchars($search_query); ?>"
+    for "<?php echo htmlspecialchars($search_query, ENT_QUOTES, 'UTF-8'); ?>"
   </div>
 
   <?php if (empty($docs)): ?>
     <div class="no-results">
-      No results found for "<?php echo htmlspecialchars($search_query); ?>"
+      No results found for "<?php echo htmlspecialchars($search_query, ENT_QUOTES, 'UTF-8'); ?>"
     </div>
   <?php else: ?>
     <?php foreach ($docs as $doc): ?>
@@ -272,12 +283,15 @@ if (!empty($_GET['q'])) {
 
         // Get snippet from highlighting or body
         $snippet = '';
+        $is_highlighted = false;
         if (!empty($highlighting[$doc['id']])) {
           $hl = $highlighting[$doc['id']];
           if (!empty($hl['tm_X3b_en_body'])) {
             $snippet = $hl['tm_X3b_en_body'][0];
+            $is_highlighted = true;
           } elseif (!empty($hl['tm_X3b_en_title'])) {
             $snippet = $hl['tm_X3b_en_title'][0];
+            $is_highlighted = true;
           }
         }
         if (empty($snippet) && !empty($doc['tm_X3b_en_body'][0])) {
@@ -286,15 +300,25 @@ if (!empty($_GET['q'])) {
             $snippet .= '...';
           }
         }
+
+        // Sanitize snippet to prevent XSS
+        if ($is_highlighted) {
+          // For highlighted text, escape everything then restore only <strong> tags
+          $snippet = htmlspecialchars($snippet, ENT_QUOTES, 'UTF-8');
+          $snippet = str_replace(['&lt;strong&gt;', '&lt;/strong&gt;'], ['<strong>', '</strong>'], $snippet);
+        } else {
+          // For plain text, just escape
+          $snippet = htmlspecialchars($snippet, ENT_QUOTES, 'UTF-8');
+        }
       ?>
       <div class="result">
         <h2 class="result-title">
-          <a href="<?php echo htmlspecialchars($url); ?>" target="_blank">
-            <?php echo htmlspecialchars($title); ?>
+          <a href="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank">
+            <?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>
           </a>
         </h2>
         <div class="result-meta">
-          From: <?php echo htmlspecialchars($site_name); ?>
+          From: <?php echo htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8'); ?>
         </div>
         <?php if ($snippet): ?>
           <div class="result-snippet">

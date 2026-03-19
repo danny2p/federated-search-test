@@ -97,6 +97,12 @@ function build_solr_params() {
 
   // Sanitize and validate query
   $query = trim($query);
+
+  // Enforce maximum query length to prevent DoS
+  if (strlen($query) > 500) {
+    send_error(400, 'Query too long (max 500 characters)');
+  }
+
   if (empty($query)) {
     $query = '*:*';
   }
@@ -119,25 +125,13 @@ function build_solr_params() {
   // Add site filter if specified
   if (!empty($_GET['site'])) {
     $site_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['site']);
-    $params['fq'] = 'ss_site_id:' . $site_id;
-  }
-
-  // Add additional filters if provided
-  if (!empty($_GET['fq'])) {
-    // Allow passing additional filter queries
-    if (is_array($_GET['fq'])) {
-      foreach ($_GET['fq'] as $fq) {
-        $params['fq'][] = $fq;
-      }
-    } else {
-      $params['fq'] = $_GET['fq'];
+    if (!empty($site_id)) {
+      $params['fq'] = 'ss_site_id:' . $site_id;
     }
   }
 
-  // Add sorting if specified
-  if (!empty($_GET['sort'])) {
-    $params['sort'] = $_GET['sort'];
-  }
+  // NOTE: Removed arbitrary 'fq' and 'sort' parameters to prevent injection attacks
+  // If you need additional filters, implement them explicitly with proper validation
 
   // Add highlighting if requested
   if (!empty($_GET['hl']) && $_GET['hl'] === 'true') {
