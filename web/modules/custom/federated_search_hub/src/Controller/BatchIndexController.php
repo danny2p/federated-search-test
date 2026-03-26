@@ -91,6 +91,16 @@ class BatchIndexController extends ControllerBase {
     try {
       // Get JSON payload
       $content = $request->getContent();
+
+      // Validate payload size (max 10MB to prevent DoS)
+      $max_size = 10 * 1024 * 1024;
+      if (strlen($content) > $max_size) {
+        return new JsonResponse([
+          'error' => 'Payload too large (max 10MB)',
+          'status' => 'error',
+        ], 413);
+      }
+
       $data = json_decode($content, TRUE);
 
       if (json_last_error() !== JSON_ERROR_NONE) {
@@ -115,7 +125,15 @@ class BatchIndexController extends ControllerBase {
         ], 400);
       }
 
-      // Index the batch
+      // Limit number of items per batch to prevent resource exhaustion
+      if (count($data['items']) > 1000) {
+        return new JsonResponse([
+          'error' => 'Too many items in batch (max 1000)',
+          'status' => 'error',
+        ], 400);
+      }
+
+      // Index the batch (sanitization happens in FederatedIndexer)
       $result = $this->indexer->indexBatch($data);
 
       return new JsonResponse([
@@ -182,6 +200,13 @@ class BatchIndexController extends ControllerBase {
       $content = $request->getContent();
       $data = json_decode($content, TRUE);
 
+      if (json_last_error() !== JSON_ERROR_NONE) {
+        return new JsonResponse([
+          'error' => 'Invalid JSON: ' . json_last_error_msg(),
+          'status' => 'error',
+        ], 400);
+      }
+
       if (empty($data['site_id'])) {
         return new JsonResponse([
           'error' => 'Missing required field: site_id',
@@ -189,6 +214,7 @@ class BatchIndexController extends ControllerBase {
         ], 400);
       }
 
+      // Delete by site (sanitization happens in FederatedIndexer)
       $deleted = $this->indexer->deleteBySiteId($data['site_id']);
 
       return new JsonResponse([

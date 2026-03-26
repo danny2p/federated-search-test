@@ -55,6 +55,34 @@ class FederatedIndexer {
   }
 
   /**
+   * Sanitize a site ID for use in Solr queries.
+   *
+   * @param string $site_id
+   *   The site ID to sanitize.
+   *
+   * @return string
+   *   The sanitized site ID.
+   *
+   * @throws \Exception
+   *   If site ID is invalid or empty after sanitization.
+   */
+  protected function sanitizeSiteId($site_id) {
+    // Only allow alphanumeric, underscore, and hyphen
+    $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '', $site_id);
+
+    // Ensure it's not empty and not too long
+    if (empty($sanitized)) {
+      throw new \Exception('Invalid site_id: must contain alphanumeric characters, underscore, or hyphen');
+    }
+
+    if (strlen($sanitized) > 100) {
+      throw new \Exception('Invalid site_id: too long (max 100 characters)');
+    }
+
+    return $sanitized;
+  }
+
+  /**
    * Index a batch of content from a remote site.
    *
    * @param array $data
@@ -73,7 +101,8 @@ class FederatedIndexer {
       'errors' => [],
     ];
 
-    $site_id = $data['site_id'];
+    // Sanitize site_id to prevent Solr injection
+    $site_id = $this->sanitizeSiteId($data['site_id']);
     $site_url = $data['site_url'] ?? '';
 
     // Get the Solr client directly
@@ -148,19 +177,30 @@ class FederatedIndexer {
       throw new \Exception('Missing required fields: id or title');
     }
 
+    // Sanitize entity_type and entity_id
+    $entity_type = preg_replace('/[^a-z_]/', '', strtolower($item['entity_type'] ?? 'node'));
+    if (empty($entity_type)) {
+      $entity_type = 'node';
+    }
+
+    // Ensure entity ID is an integer
+    $entity_id = is_numeric($item['id']) ? (int) $item['id'] : 0;
+    if ($entity_id <= 0) {
+      throw new \Exception('Invalid entity ID: must be a positive integer');
+    }
+
     $solr_client = $this->getSolrClient();
     $update = $solr_client->getUpdateQuery();
     $doc = $update->createDocument();
 
     // Generate unique Solr ID: site_id + entity_type + entity_id
-    $entity_type = $item['entity_type'] ?? 'node';
-    $solr_id = "federated:{$site_id}:{$entity_type}:{$item['id']}";
+    $solr_id = "federated:{$site_id}:{$entity_type}:{$entity_id}";
     $doc->setField('id', $solr_id);
 
     // Add federated search fields
     $doc->setField('ss_site_id', $site_id);
     $doc->setField('ss_site_url', $site_url);
-    $doc->setField('ss_source_id', $item['id']);
+    $doc->setField('ss_source_id', $entity_id);
     $doc->setField('ss_entity_type', $entity_type);
 
     // Add standard Search API fields
@@ -280,7 +320,9 @@ class FederatedIndexer {
       $query = $solr_client->getSelectQuery();
 
       if ($site_id) {
-        $query->setQuery('ss_site_id:' . $site_id);
+        // Sanitize site_id to prevent Solr injection
+        $sanitized_site_id = $this->sanitizeSiteId($site_id);
+        $query->setQuery('ss_site_id:' . $sanitized_site_id);
       }
       else {
         $query->setQuery('*:*');
@@ -327,23 +369,26 @@ class FederatedIndexer {
    */
   public function deleteBySiteId($site_id) {
     try {
+      // Sanitize site_id to prevent Solr injection
+      $sanitized_site_id = $this->sanitizeSiteId($site_id);
+
       // First, get count of documents to delete
-      $status = $this->getStatus($site_id);
-      $count = $status['sites'][$site_id] ?? 0;
+      $status = $this->getStatus($sanitized_site_id);
+      $count = $status['sites'][$sanitized_site_id] ?? 0;
 
       if ($count > 0) {
         $solr_client = $this->getSolrClient();
         $update = $solr_client->createUpdate();
 
-        // Delete by query
-        $update->addDeleteQuery('ss_site_id:' . $site_id);
+        // Delete by query using sanitized site_id
+        $update->addDeleteQuery('ss_site_id:' . $sanitized_site_id);
         $update->addCommit();
 
         $solr_client->update($update);
 
         $this->logger->info('Deleted @count documents for site @site_id', [
           '@count' => $count,
-          '@site_id' => $site_id,
+          '@site_id' => $sanitized_site_id,
         ]);
       }
 
